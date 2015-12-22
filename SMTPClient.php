@@ -1,24 +1,9 @@
 <?php
-
-/** SMTPClient class allow you to connect to an SMPT server to send an email without any
-    sendmail command.
-    You have to use your own SMTP account to connect to a server.
-    To send an email, you'll have to :
-    setServer -> setSender -> setMail -> attachFile (called once per file) -> sendMail 
-    
-    Usage :
-	    $smtpClient = new SMTPClient();
-		$smtpClient->setServer("smtp.gmail.com", "465", true);
-		$smtpClient->setSender("myemailaddressexample@gmail.com", 
-								"myemailaddressexample@gmail.com",
-								"mypassword");
-		$smtpClient->setMail("destinationaddress@example.com, otheraddress@example.com",
-								"My test email subject",
-								"If you read this in a mail client, everything is OK");
-		$smtpClient->attachFile("Texte.txt", file_get_contents("./myTextFile.txt");
-		$smtpClient->attachFile("Image.PNG", file_get_contents("./myImageFile.png"));
-		$smtpClient->sendMail();
-    */
+namespace Mail;
+use Mail\Exception as Exception;
+/**
+ * This is SMTPClient which sends mail using SMTP server
+ */
 class SMTPClient {
 	//If _debug is true, mail won't be send and commands will be written in _traceFile
 	private $_debug = false;
@@ -69,14 +54,7 @@ class SMTPClient {
 			$this->to = $to;
 		} else {
 			//str_replace is called twice to delete spaces next to ','
-			$this->to = explode(
-								",",
-								str_replace(
-											", ",
-											",",
-											str_replace(" ,", ",", $to)
-											)
-								);
+			$this->to = explode(",", str_replace(", ", ",", str_replace(" ,", ",", $to)));
 		}
 		
 		$this->subject = $subject;
@@ -91,13 +69,13 @@ class SMTPClient {
 	    MIME Type "application/octet-stream" seems to work for many file type.
 		Change it to the real value if needed. (image/gif, image/png, etc.)
 		*/ 
-	public function attachFile($filename, $fileRawContent, 
-						$mimeType = "application/octet-stream") {
+	public function attachFile($filename, $fileRawContent, $mimeType = "application/octet-stream") {
 		if (!isset($this->_attachedFiles)) $this->_attachedFiles = array();
 		$this->_attachedFiles[] = array(
-									"Filename" => $filename,
-									"Content" => base64_encode($fileRawContent),
-									"Content-Type" => $mimeType);
+			"Filename" => $filename,
+			"Content" => base64_encode($fileRawContent),
+			"Content-Type" => $mimeType
+		);
 	}
 	
 	/** Don't send $filename as an attachment
@@ -125,7 +103,7 @@ class SMTPClient {
 			} else {
 				if (!($socket = fsockopen(($this->security ? $this->security . "://" : "") 
 					. $this->smtpHost, $this->smtpPort, $errno, $errstr, 15)))
-					throw new Exception("Could not connect to SMTP host ".
+					throw new Exception\Core("Could not connect to SMTP host ".
 										"'$smtp_host' ($errno) ($errstr)\n");
 			}
 			
@@ -237,7 +215,7 @@ class SMTPClient {
 			//Close connection
 			fwrite($socket, "QUIT"."\r\n");
 			fclose($socket);
-		} catch (Exception $e) {
+		} catch (\Exception $e) {
 			echo "Error while sending email. Reason : \n" . $e->getMessage();
 			return false;
 		}
@@ -250,7 +228,7 @@ class SMTPClient {
 	protected function waitForPositivePreliminaryReply($socket) {
 		try {
 			$this->_serverRespondedAsExpected($socket, 1);
-		} catch (Exception $e) {
+		} catch (\Exception $e) {
 			throw $e;
 		}
 	}	
@@ -260,7 +238,7 @@ class SMTPClient {
 	protected function waitForPositiveCompletionReply($socket) {
 		try {
 			$this->_serverRespondedAsExpected($socket, 2);
-		} catch (Exception $e) {
+		} catch (\Exception $e) {
 			throw $e;
 		}
 	}	
@@ -270,7 +248,7 @@ class SMTPClient {
 	protected function waitForPositiveIntermediateReply($socket) {
 		try {
 			$this->_serverRespondedAsExpected($socket, 3);
-		} catch (Exception $e) {
+		} catch (\Exception $e) {
 			throw $e;
 		}
 	}
@@ -281,7 +259,7 @@ class SMTPClient {
 	protected function waitForTransientNegativeCompletionReply($socket) {
 		try {
 			$this->_serverRespondedAsExpected($socket, 4);
-		} catch (Exception $e) {
+		} catch (\Exception $e) {
 			throw $e;
 		}
 	}
@@ -292,7 +270,7 @@ class SMTPClient {
 	protected function waitForPermanentNegativeCompletionReply($socket) {
 		try {
 			$this->_serverRespondedAsExpected($socket, 5);
-		} catch (Exception $e) {
+		} catch (\Exception $e) {
 			throw $e;
 		}
 	}
@@ -311,7 +289,7 @@ class SMTPClient {
 			$serverResponse = fgets($socket, 256);
 //			echo $serverResponse;
 			if (!($serverResponse))
- 				throw new Exception("Couldn\'t get mail server response codes."
+ 				throw new Exception\Core("Couldn\'t get mail server response codes."
 										. " Please contact an administrator.");
 		}
 
@@ -319,7 +297,7 @@ class SMTPClient {
 		$statusMessage = substr($serverResponse, 4);
 		if (!(is_numeric($statusCode) 
 				&& (int)($statusCode / 100) == $expectedStatusCode)) {
-			throw new Exception($statusMessage);
+			throw new Exception\Core($statusMessage);
 		}
 	}
 	
@@ -394,4 +372,3 @@ class SMTPClient {
 		$this->charset = $charset;
 	}
 }
-?>
